@@ -1,0 +1,10 @@
+version: '3.1'
+
+services:
+  cpin-data-collector:
+    build: ./
+    restart: always
+    ports:
+      - "8020:5000"
+    volumes:
+      - ./data:/data
