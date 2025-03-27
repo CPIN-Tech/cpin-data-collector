@@ -1,0 +1,83 @@
+## User Settings
+
+# Logging configuration: normal or verbose.
+logging: verbose
+
+# Sets the local time zone.
+time_zone: "Europe/Istanbul"
+
+# PV data grabber configuration
+# Currently the following devices are available
+#  - Dummy: a simple dummy devices that can be used for testing
+#  - Fronius: supports Fronius Symo/GEN24 inverters + smar meter
+device:
+  type:        Dummy       # Name of the device to load (must match an existing device .py file/class)
+  start_date:  2024-01-01  # The start of operation (YYYY-MM-DD)
+
+# Device specific settings. These depend on the selected device adapter
+# Enable if you want to use Fronius hardware
+#fronius:
+#  host_name: 192.168.178.200  # Host name/IP address of the Fronius end point
+#  has_meter: False # Is smart meter present?
+
+# Enable if you want to use Generic Modbus Protocol
+modbus:
+  connection_type: tcp  # 'tcp' or 'rtu'
+  # TCP settings
+  host: 192.168.1.100
+  port: 502
+  # RTU settings (used if connection_type is 'rtu')
+  port_name: /dev/ttyUSB0
+  baudrate: 9600
+  parity: N
+  stopbits: 1
+  bytesize: 8
+  # Common settings
+  unit_id: 1
+  timeout: 3
+  word_order: big  # 'big' or 'little'
+  byte_order: big  # 'big' or 'little'
+  # Register mapping - adjust these based on your inverter's documentation
+  register_map:
+    total_energy_produced:
+      address: 3000
+      length: 2
+      type: uint32
+      scale: 0.001
+    current_power_produced:
+      address: 3012
+      length: 1
+      type: uint16
+      scale: 0.001
+    current_power_consumed_grid:
+      address: 3014
+      length: 1
+      type: int16
+      scale: 0.001
+    # Add other registers as needed
+
+# Electricity prices. Used to calculate earnings in the UI.
+prices:
+  price_per_grid_kwh:     0.325  # Price for 1 kWh from the grid in Euro
+  revenue_per_fed_in_kwh: 0.085  # Revenue for one fed in kWh in Euro
+
+# General Cpin Data Collector Config
+cpin_data_collector:
+  name: "Facility Gaziantep 3" # Name of the Cpin Data Collector instance
+  
+## Internal Settings. Do not modify!
+
+# Web server configuration. Do not modify!
+server:
+  ip:     0.0.0.0       # IP address of the server, usually 0.0.0.0 should work
+  port:   5000          # Port for the web server (default)
+
+# Data grabber configuration. Do not modify!
+grabber:
+  interval_s: 5  # Interval for the data acquisition in seconds
+
+# Configuration for the job that sends data to Peaq Storage
+peaq_storage_updater:
+  interval_s: 5  # Interval for the data acquisition in seconds
+  did: "did:peaq:0x0000000000000000000000000000000000000000"  # Peaq DID to use for the storage update
+  mnemonic: "mnemonic"  # Mnemonic for the Peaq DID

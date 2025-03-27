@@ -1,0 +1,9 @@
+.cpin-data-collector-sidebar {
+    background: #1e2024;
+  }
+
+.paper-canvas[resize] {
+  background-color: blue;
+  width: 100%;
+  height: 100%;
+}
