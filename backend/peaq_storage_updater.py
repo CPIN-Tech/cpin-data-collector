@@ -9,6 +9,7 @@ from datetime import date, datetime
 # Project imports
 from config import Config
 from database import Database
+from did_document import create_did_doc
 import version
 from substrateinterface import SubstrateInterface, Keypair, KeypairType
 
@@ -153,7 +154,7 @@ def main():
         call_params={
             'did_account': keypair.ss58_address,
             'name': 'cpin-spp-facility',
-            'value': '',
+            'value': create_did_doc(keypair.ss58_address),
             'valid_for': None
             }
         )
