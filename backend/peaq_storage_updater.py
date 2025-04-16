@@ -9,9 +9,11 @@ from datetime import date, datetime
 # Project imports
 from config import Config
 from database import Database
-from did_document import create_did_doc
 import version
-from substrateinterface import SubstrateInterface, Keypair, KeypairType
+
+from eth_account import Account
+from peaq_sdk import Sdk
+from peaq_sdk.types import ChainType, CustomDocumentFields, Verification, Service, Signature
 
 
 # Real time (24h) data
@@ -58,34 +60,18 @@ def set_time_zone(tz):
 
 
 # Updates data in the data base
-def update_data(dcValue, acValue, year, month, day, hour):
+def update_data(sdk, dcValue, acValue, year, month, day, hour):
     '''Updates data in the data base.'''
     try:
-        nonce = substrate.get_account_nonce(keypair.ss58_address)
-        logging.info(f"Peaq Storage Updater: Read Peaq and create DID ")
-        call = substrate.compose_call(
-        call_module='PeaqStorage',
-        call_function='add_item',
-        call_params={
-            'item_type': f'cpin-production-{year}-{month}-{day}-{hour}',
-            'item': f'{{"outputAC": {acValue}, "outputDC": {dcValue}}}'
-            }
-        )
-        extrinsic = substrate.create_signed_extrinsic(
-            call=call, 
-            keypair=keypair,
-            era={'period': 64},
-            nonce=nonce
-        )
-
-        receipt = substrate.submit_extrinsic(extrinsic, wait_for_inclusion=True)
-
-        if receipt.is_success:
+        key = f'cpin-production-{year}-{month}-{day}-{hour}'
+        value = f'{{"outputAC": {acValue}, "outputDC": {dcValue}}}'
+        result = sdk.storage.add_item(item_type=key, item=value)
+        if result.receipt.is_success:
             logging.exception('Storage update success')
             for event in receipt.triggered_events:
                 logging.exception(f'* {event.value}')
         else:
-            logging.exception('Extrinsic Failed: ', receipt.error_message)
+            logging.exception('Tx Failed: ', receipt.error_message)
 
     except Exception:
         logging.exception("Storage update failed")
@@ -133,46 +119,47 @@ def main():
     set_time_zone(config.config_data.get("time_zone"))
 
     # Connect to the peaq network
-    peaq_network_url = config.config_data['peaq_storage_updater']['peaq_network_url']
-    substrate = SubstrateInterface(
-            url=peaq_network_url,
-        )
+    peaq_wss_url = config.config_data['peaq_storage_updater']['peaq_wss_url']
+    peaq_evm_url = config.config_data['peaq_storage_updater']['peaq_evm_url']
+    admin_address = config.config_data['peaq_storage_updater']['admin_address']
+    facility_info_url = config.config_data['peaq_storage_updater']['facility_info_url']
+    admin_signature = config.config_data['peaq_storage_updater']['admin_signature']
+    private_key = config.config_data['peaq_storage_updater']['private_key']
+    did_account = Account.from_key(private_key)
+    did_name = 'did:peaq:' + did_account.address + '#cpin'
 
-    mnemonic = config.config_data['peaq_storage_updater']['mnemonic']
-    keypair = Keypair.create_from_mnemonic(
-        mnemonic,
-        ss58_format=42,
-        crypto_type=KeypairType.SR25519)
+    sdk = Sdk.create_instance(
+        base_url=peaq_evm_url,
+        chain_type=ChainType.EVM,
+        seed=private_key,
+    )
 
-    # Dynamically load the device
+    # Create did if not exists
     try:
-        nonce = substrate.get_account_nonce(keypair.ss58_address)
-        logging.info(f"Peaq Storage Updater: Read Peaq and create DID ")
-        call = substrate.compose_call(
-        call_module='PeaqDid',
-        call_function='add_attribute',
-        call_params={
-            'did_account': keypair.ss58_address,
-            'name': 'cpin-spp-facility',
-            'value': create_did_doc(keypair.ss58_address),
-            'valid_for': None
-            }
-        )
-        extrinsic = substrate.create_signed_extrinsic(
-            call=call, 
-            keypair=keypair,
-            era={'period': 64},
-            nonce=nonce
-        )
-
-        receipt = substrate.submit_extrinsic(extrinsic, wait_for_inclusion=True)
-
-        if receipt.is_success:
-            logging.exception('DID init success')
-            for event in receipt.triggered_events:
-                logging.exception(f'* {event.value}')
-        else:
-            logging.exception('Extrinsic Failed: ', receipt.error_message)
+        try:
+            result = sdk.did.read(name=did_name, wss_base_url=peaq_wss_url)
+        except:
+            custom_fields = CustomDocumentFields(
+                verifications=[
+                    Verification(type='EcdsaSecp256k1RecoveryMethod2020')
+                ],
+                signature=Signature(
+                    type='EcdsaSecp256k1RecoveryMethod2020',
+                    issuer=admin_address, 
+                    hash=admin_signature
+                ),
+                services=[
+                    Service(id='#admin', type='admin', data=admin_address)
+                    Service(id='#ipfs', type='facilityInfo', serviceEndpoint=facility_info_url)
+                ]
+            )
+            result = sdk.did.create(name=did_name, custom_document_fields=custom_fields)
+            if result.receipt.is_success:
+                logging.exception('DID init success')
+                for event in receipt.triggered_events:
+                    logging.exception(f'* {event.value}')
+            else:
+                logging.exception('Tx Failed: ', result.message)
 
     except Exception:
         logging.exception("DID init failed")
@@ -193,7 +180,7 @@ def main():
 
         try:
             data = get_json_data_history_details("hours", "")
-            update_data(data[-1]['output_dc'], data[-1]['output_ac'], data[-1]['date'].split('-')[0], data[-1]['date'].split('-')[1], data[-1]['date'].split('-')[2], data[-1]['date'].split('-')[3])
+            update_data(sdk, data[-1]['output_dc'], data[-1]['output_ac'], data[-1]['date'].split('-')[0], data[-1]['date'].split('-')[1], data[-1]['date'].split('-')[2], data[-1]['date'].split('-')[3])
         except Exception:
             logging.exception("Peaq Storage Updater: failed")
 

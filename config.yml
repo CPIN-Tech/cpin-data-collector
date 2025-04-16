@@ -79,5 +79,11 @@ grabber:
 # Configuration for the job that sends data to Peaq Storage
 peaq_storage_updater:
   interval_s: 5  # Interval for the data acquisition in seconds
-  did: "did:peaq:0x0000000000000000000000000000000000000000"  # Peaq DID to use for the storage update
-  mnemonic: "mnemonic"  # Mnemonic for the Peaq DID
+  did: "did:peaq:0x0000000000000000000000000000000000000000#cpin"  # Peaq DID to use for the storage update
+  private_key: "0x...."  # Private key for machine did
+  admin_address: "" # account address for admin
+  facility_info_url: "https://ipfs.io/ipfs/..." # url for facility info 
+  admin_signature: "0x........" # admin signature for facility info json
+  peaq_wss_url: "wss://peaq.api.onfinality.io/public"
+  peaq_evm_url: "https://peaq.api.onfinality.io/public"
+  
